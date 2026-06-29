@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#04080f" id="theme-color-meta">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>d3v Nexus</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="stylesheet" href="style.css">
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+
+<!-- SIGN IN -->
+<div id="signin-screen">
+  <div class="signin-icon-wrap">
+    <svg class="signin-logo-svg" viewBox="0 0 96 96" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="hexGrad" x1="0" y1="0" x2="96" y2="96" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stop-color="#8b81ff"/>
+          <stop offset="100%" stop-color="#6c63ff"/>
+        </linearGradient>
+        <linearGradient id="ringGrad" x1="0" y1="0" x2="96" y2="96" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stop-color="#2dd4a0" stop-opacity="0.9"/>
+          <stop offset="100%" stop-color="#6c63ff" stop-opacity="0.3"/>
+        </linearGradient>
+      </defs>
+      <path d="M48 6 L84 27 L84 69 L48 90 L12 69 L12 27 Z" fill="url(#hexGrad)" opacity="0.95"/>
+      <path d="M48 6 L84 27 L84 69 L48 90 L12 69 L12 27 Z" fill="none" stroke="rgba(139,129,255,0.4)" stroke-width="1.5"/>
+      <ellipse cx="48" cy="48" rx="40" ry="14" fill="none" stroke="url(#ringGrad)" stroke-width="1.5" transform="rotate(-25 48 48)" opacity="0.7"/>
+      <text x="48" y="57" text-anchor="middle" font-family="Space Grotesk,sans-serif" font-size="30" font-weight="700" fill="white" opacity="0.95">N</text>
+      <circle cx="74" cy="22" r="4" fill="#2dd4a0" opacity="0.9"/>
+    </svg>
+  </div>
+  <div class="signin-brand">d3v Nexus</div>
+  <div class="signin-title">One hub.<br><span>Everything you track.</span></div>
+  <div class="signin-sub">Expenses &middot; Daily Reports &middot; Client Visits<br>All synced, all yours.</div>
+  <button class="btn-google" onclick="handleSignIn()">
+    <svg viewBox="0 0 24 24" width="20" height="20"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+    Continue with Google
+  </button>
+  <div class="signin-hint" id="signin-status"></div>
+</div>
+
+<!-- MAIN APP -->
+<div id="app" style="display:none;">
+
+  <!-- TOPBAR -->
+  <div class="topbar" id="topbar" style="display:none;">
+    <div class="topbar-brand">
+      <svg class="topbar-logo" viewBox="0 0 30 30" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M15 2L27 8.5V21.5L15 28L3 21.5V8.5Z" fill="#6c63ff" opacity="0.9"/>
+        <text x="15" y="20" text-anchor="middle" font-family="Space Grotesk,sans-serif" font-size="11" font-weight="700" fill="white">N</text>
+        <circle cx="23" cy="7" r="2.5" fill="#2dd4a0"/>
+      </svg>
+      <div class="topbar-name-wrap">
+        <div class="topbar-greeting" id="topbar-greeting">Good morning</div>
+        <div class="topbar-title" id="page-title">d3v Nexus</div>
+      </div>
+    </div>
+    <div id="user-chip" style="display:none;">
+      <div class="user-avatar-btn" id="user-avatar" onclick="switchTab('settings')"></div>
+    </div>
+  </div>
+
+  <div id="toast-container"></div>
+
+  <!-- TAB: HOME -->
+  <div class="screen active" id="tab-home">
+    <div class="month-selector">
+      <button class="month-selector-btn" onclick="changeViewMonth(-1)">&#x2039;</button>
+      <span class="month-selector-label" id="month-selector-label">This Month</span>
+      <button class="month-selector-btn" onclick="changeViewMonth(1)" id="month-next-btn">&#x203A;</button>
+    </div>
+    <div class="overview-row">
+      <div class="overview-card oc-expense">
+        <div class="overview-label">Spent</div>
+        <div class="overview-value ov-expense" id="home-spent">&#x20B9;0</div>
+        <div class="overview-trend" id="spent-trend"></div>
+      </div>
+      <div class="overview-card oc-income">
+        <div class="overview-label">Earned</div>
+        <div class="overview-value ov-income" id="home-earned">&#x20B9;0</div>
+      </div>
+      <div class="overview-card oc-balance">
+        <div class="overview-label">Balance</div>
+        <div class="overview-value ov-balance" id="home-balance">&#x20B9;0</div>
+      </div>
+    </div>
+    <div class="type-toggle">
+      <button id="btn-type-expense" class="active-expense" onclick="setType('expense')">&#x1F4E4; Expense</button>
+      <button id="btn-type-income" onclick="setType('income')">&#x1F4E5; Income</button>
+    </div>
+    <div class="amount-input-wrap">
+      <span class="amount-prefix">&#x20B9;</span>
+      <input type="number" class="amount-input" id="amount-input" placeholder="0" inputmode="decimal">
+    </div>
+    <div class="cat-grid" id="cat-grid"></div>
+    <div class="form-grid-2 mb-12">
+      <input type="text" id="note-input" placeholder="Note (optional)" maxlength="120">
+      <input type="date" id="date-input">
+    </div>
+    <div class="toggle-row" id="rec-row-expense">
+      <span class="toggle-label">&#x1F504; Recurring expense</span>
+      <div class="toggle-switch" id="rec-toggle-expense" onclick="toggleRecurringExpense()"></div>
+    </div>
+    <div class="form-row" id="rec-opts-expense" style="display:none;">
+      <label>Frequency</label>
+      <select id="rec-freq-expense">
+        <option value="daily">Daily</option>
+        <option value="weekly" selected>Weekly</option>
+        <option value="monthly">Monthly</option>
+      </select>
+    </div>
+    <div class="toggle-row" id="rec-row-income" style="display:none;">
+      <span class="toggle-label">&#x1F504; Recurring income</span>
+      <div class="toggle-switch" id="rec-toggle-income" onclick="toggleRecurringIncome()"></div>
+    </div>
+    <div class="form-row" id="rec-opts-income" style="display:none;">
+      <label>Frequency</label>
+      <select id="rec-freq-income">
+        <option value="daily">Daily</option>
+        <option value="weekly">Weekly</option>
+        <option value="monthly" selected>Monthly</option>
+      </select>
+    </div>
+    <button class="btn-primary btn-expense" id="btn-add" onclick="addTransaction()"><span>Add Expense</span></button>
+  </div>
+
+  <!-- TAB: HISTORY -->
+  <div class="screen" id="tab-history">
+    <div class="search-bar">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" width="17" height="17"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+      <input type="text" id="history-search" placeholder="Search notes, categories&hellip;" oninput="renderHistory()">
+    </div>
+    <div class="filter-chips" id="filter-chips"></div>
+    <div id="history-list"></div>
+  </div>
+
+  <!-- TAB: ANALYTICS -->
+  <div class="screen" id="tab-analytics">
+    <div class="analytics-period">
+      <button onclick="setPeriod('week')" id="period-week">Week</button>
+      <button onclick="setPeriod('month')" id="period-month" class="active">Month</button>
+      <button onclick="setPeriod('3m')" id="period-3m">3M</button>
+      <button onclick="setPeriod('year')" id="period-year">Year</button>
+      <button onclick="setPeriod('all')" id="period-all">All</button>
+    </div>
+    <div class="stats-grid">
+      <div class="stat-card"><div class="stat-label">Today</div><div class="stat-value" id="stat-today">&#x20B9;0</div></div>
+      <div class="stat-card"><div class="stat-label">This Week</div><div class="stat-value" id="stat-week">&#x20B9;0</div></div>
+      <div class="stat-card"><div class="stat-label">This Month</div><div class="stat-value" id="stat-month">&#x20B9;0</div></div>
+    </div>
+    <div class="balance-hero">
+      <div class="balance-label">Net Balance (Period)</div>
+      <div class="balance-value" id="balance-value">&#x20B9;0</div>
+      <div class="overview-trend" id="balance-trend"></div>
+      <div class="balance-sub">
+        <span>In: <b class="text-income" id="balance-income">&#x20B9;0</b></span>
+        <span>Out: <b class="text-expense" id="balance-expense">&#x20B9;0</b></span>
+      </div>
+    </div>
+    <div class="chart-container"><div class="chart-title">6-Month Overview</div><canvas id="chart-trend"></canvas></div>
+    <div class="chart-container"><div class="chart-title" id="daily-chart-title">Daily Spending</div><canvas id="chart-daily"></canvas></div>
+    <div class="chart-container"><div class="chart-title">By Category</div><canvas id="chart-cat"></canvas></div>
+    <div class="glass-card">
+      <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:12px;">Category Breakdown</div>
+      <div id="cat-breakdown"></div>
+    </div>
+  </div>
+
+  <!-- TAB: REPORTS -->
+  <div class="screen" id="tab-reports">
+    <div class="report-type-toggle">
+      <button class="report-type-btn active" id="rtab-daily" onclick="switchReportType('daily')">
+        <span class="r-icon">&#x1F4CB;</span><span>Daily Report</span>
+      </button>
+      <button class="report-type-btn" id="rtab-visit" onclick="switchReportType('visit')">
+        <span class="r-icon">&#x1F4CD;</span><span>Visit Report</span>
+      </button>
+    </div>
+
+    <!-- DAILY FORM -->
+    <div id="daily-report-form">
+      <div class="glass-card" style="margin-bottom:14px;">
+        <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:14px;">&#x2795; New Daily Report</div>
+        <div class="form-row"><label>Date</label><input type="date" id="dr-date"></div>
+        <div class="form-row"><label>Summary / Notes</label><textarea id="dr-notes" placeholder="What did you work on today?"></textarea></div>
+        <div class="form-row"><label>Tasks Completed</label><input type="text" id="dr-tasks" placeholder="e.g. Client call, Report submitted"></div>
+        <div class="form-row"><label>Issues / Blockers</label><input type="text" id="dr-issues" placeholder="Any blockers today? (optional)"></div>
+        <div class="form-row"><label>Plan for Tomorrow</label><input type="text" id="dr-plan" placeholder="Next steps (optional)"></div>
+        <div class="form-grid-2 mb-12">
+          <div class="form-row" style="margin-bottom:0;"><label>Mood</label>
+            <select id="dr-mood">
+              <option value="great">&#x1F604; Great</option>
+              <option value="good" selected>&#x1F642; Good</option>
+              <option value="okay">&#x1F610; Okay</option>
+              <option value="tough">&#x1F614; Tough</option>
+            </select>
+          </div>
+          <div class="form-row" style="margin-bottom:0;"><label>Status</label>
+            <select id="dr-status">
+              <option value="completed">Completed</option>
+              <option value="inprogress">In Progress</option>
+              <option value="pending">Pending</option>
+            </select>
+          </div>
+        </div>
+        <button class="btn-primary btn-accent" onclick="saveDailyReport()">&#x1F4BE; Save Daily Report</button>
+      </div>
+      <div class="report-stats-row">
+        <div class="report-stat"><div class="report-stat-val" id="dr-stats-total">0</div><div class="report-stat-lbl">Total</div></div>
+        <div class="report-stat"><div class="report-stat-val" id="dr-stats-completed" style="color:var(--income);">0</div><div class="report-stat-lbl">Done</div></div>
+        <div class="report-stat"><div class="report-stat-val" id="dr-stats-pending" style="color:var(--warn);">0</div><div class="report-stat-lbl">Pending</div></div>
+      </div>
+      <div class="section-header">
+        <span class="section-title">Daily Reports</span>
+        <button class="btn-secondary" onclick="openReportCsv('daily')">&#x1F4E5; Export CSV</button>
+      </div>
+      <div id="daily-report-list"></div>
+    </div>
+
+    <!-- VISIT FORM -->
+    <div id="visit-report-form" style="display:none;">
+      <div class="glass-card" style="margin-bottom:14px;">
+        <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:14px;">&#x2795; New Visit Report</div>
+        <div class="form-grid-2">
+          <div class="form-row"><label>Date</label><input type="date" id="vr-date"></div>
+          <div class="form-row"><label>Time</label><input type="time" id="vr-time"></div>
+        </div>
+        <div class="form-row"><label>Client Name</label><input type="text" id="vr-client" placeholder="Client / Company name"></div>
+        <div class="form-row"><label>Location / Address</label><input type="text" id="vr-location" placeholder="Office address or area"></div>
+        <div class="form-row"><label>Contact Person</label><input type="text" id="vr-contact" placeholder="Person you met (optional)"></div>
+        <div class="form-row"><label>Purpose of Visit</label><input type="text" id="vr-purpose" placeholder="e.g. Sales demo, Support, Follow-up"></div>
+        <div class="form-row"><label>What Was Done</label><textarea id="vr-notes" placeholder="Detailed notes about the visit&hellip;"></textarea></div>
+        <div class="form-row"><label>Outcome / Next Steps</label><input type="text" id="vr-outcome" placeholder="Result and next steps (optional)"></div>
+        <div class="form-grid-2 mb-12">
+          <div class="form-row" style="margin-bottom:0;"><label>Visit Status</label>
+            <select id="vr-status">
+              <option value="completed">Completed</option>
+              <option value="inprogress">In Progress</option>
+              <option value="pending">Pending</option>
+            </select>
+          </div>
+          <div class="form-row" style="margin-bottom:0;"><label>Follow-up?</label>
+            <select id="vr-followup">
+              <option value="no">No follow-up</option>
+              <option value="call">&#x1F4DE; Call</option>
+              <option value="email">&#x1F4E7; Email</option>
+              <option value="meeting">&#x1F91D; Meeting</option>
+            </select>
+          </div>
+        </div>
+        <button class="btn-primary btn-accent" onclick="saveVisitReport()">&#x1F4BE; Save Visit Report</button>
+      </div>
+      <div class="report-stats-row">
+        <div class="report-stat"><div class="report-stat-val" id="vr-stats-total">0</div><div class="report-stat-lbl">Total</div></div>
+        <div class="report-stat"><div class="report-stat-val" id="vr-stats-completed" style="color:var(--income);">0</div><div class="report-stat-lbl">Done</div></div>
+        <div class="report-stat"><div class="report-stat-val" id="vr-stats-followup" style="color:var(--warn);">0</div><div class="report-stat-lbl">Follow-up</div></div>
+      </div>
+      <div class="section-header">
+        <span class="section-title">Visit Reports</span>
+        <button class="btn-secondary" onclick="openReportCsv('visit')">&#x1F4E5; Export CSV</button>
+      </div>
+      <div id="visit-report-list"></div>
+    </div>
+  </div>
+
+  <!-- TAB: SETTINGS -->
+  <div class="screen" id="tab-settings">
+    <div class="settings-group">
+      <div class="settings-group-label">Appearance</div>
+      <div class="settings-row">
+        <div class="settings-row-left"><div class="settings-row-icon">&#x1F319;</div><div><div class="settings-row-label">Dark Mode</div><div class="settings-row-sub">Deep space theme</div></div></div>
+        <div class="toggle-switch on" id="dark-toggle" onclick="toggleDarkMode()"></div>
+      </div>
+    </div>
+    <div class="settings-group">
+      <div class="settings-group-label">Notifications</div>
+      <div class="settings-row">
+        <div class="settings-row-left"><div class="settings-row-icon">&#x1F514;</div><div><div class="settings-row-label">Budget Alerts</div><div class="settings-row-sub" id="notif-status">Tap to enable</div></div></div>
+        <div class="toggle-switch" id="notif-toggle" onclick="toggleNotifications()"></div>
+      </div>
+    </div>
+    <div class="settings-group">
+      <div class="settings-group-label">Monthly Budget</div>
+      <div class="glass-card">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <span style="font-size:13px;font-weight:500;" id="monthly-budget-display">No budget set</span>
+          <button class="btn-secondary" onclick="openBudget()">Set</button>
+        </div>
+        <div id="monthly-budget-progress" style="display:none;">
+          <div class="budget-progress-bar"><div class="budget-progress-fill" id="monthly-budget-bar" style="width:0%;background:var(--income);"></div></div>
+          <div class="budget-progress-text" id="monthly-budget-text"></div>
+        </div>
+      </div>
+    </div>
+    <div class="settings-group">
+      <div class="settings-group-label">Budget by Category</div>
+      <div id="settings-cat-budgets"></div>
+    </div>
+    <div class="settings-group">
+      <div class="settings-group-label">Recurring Transactions</div>
+      <div id="settings-recurring"></div>
+    </div>
+    <div class="settings-group">
+      <div class="settings-group-label">Export Data</div>
+      <div class="settings-row" onclick="openExpenseCsv()" style="cursor:pointer;margin-bottom:5px;">
+        <div class="settings-row-left"><div class="settings-row-icon">&#x1F4CA;</div><div><div class="settings-row-label">Export Expenses</div><div class="settings-row-sub">Choose columns &amp; date range</div></div></div>
+        <span class="settings-chevron">&#x203A;</span>
+      </div>
+      <div class="settings-row" onclick="openReportCsv('daily')" style="cursor:pointer;margin-bottom:5px;">
+        <div class="settings-row-left"><div class="settings-row-icon">&#x1F4CB;</div><div><div class="settings-row-label">Export Daily Reports</div><div class="settings-row-sub">Choose columns &amp; date range</div></div></div>
+        <span class="settings-chevron">&#x203A;</span>
+      </div>
+      <div class="settings-row" onclick="openReportCsv('visit')" style="cursor:pointer;">
+        <div class="settings-row-left"><div class="settings-row-icon">&#x1F4CD;</div><div><div class="settings-row-label">Export Visit Reports</div><div class="settings-row-sub">Choose columns &amp; date range</div></div></div>
+        <span class="settings-chevron">&#x203A;</span>
+      </div>
+    </div>
+    <div class="settings-group">
+      <div class="settings-group-label">Account</div>
+      <div class="settings-row">
+        <div class="settings-row-left">
+          <img id="settings-avatar" src="" style="width:36px;height:36px;border-radius:50%;display:none;object-fit:cover;">
+          <div class="user-avatar-btn" id="settings-avatar-fallback" style="width:36px;height:36px;font-size:13px;display:none;"></div>
+          <div><div class="settings-row-label" id="settings-name">User</div><div class="settings-row-sub" id="settings-email"></div></div>
+        </div>
+      </div>
+      <button class="btn-primary" style="background:var(--surface2);color:var(--expense);border:1px solid var(--border);box-shadow:none;margin-top:6px;" onclick="handleSignOut()">Sign Out</button>
+    </div>
+    <div style="text-align:center;padding:20px 0 8px;color:var(--text3);font-size:11px;letter-spacing:0.5px;">d3v Nexus &middot; v3.0</div>
+  </div>
+
+  <!-- BOTTOM NAV -->
+  <nav class="bottom-nav" id="bottom-nav" style="display:none;">
+    <div class="nav-item active" onclick="switchTab('home')">
+      <div class="nav-active-bar"></div>
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="22" height="22" stroke-width="1.7"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      <span>Home</span>
+    </div>
+    <div class="nav-item" onclick="switchTab('history')">
+      <div class="nav-active-bar"></div>
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="22" height="22" stroke-width="1.7"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+      <span>History</span>
+    </div>
+    <div class="nav-item" onclick="switchTab('analytics')">
+      <div class="nav-active-bar"></div>
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="22" height="22" stroke-width="1.7"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+      <span>Analytics</span>
+    </div>
+    <div class="nav-item" onclick="switchTab('reports')">
+      <div class="nav-active-bar"></div>
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="22" height="22" stroke-width="1.7"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+      <span>Reports</span>
+    </div>
+    <div class="nav-item" onclick="switchTab('settings')">
+      <div class="nav-active-bar"></div>
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="22" height="22" stroke-width="1.7"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      <span>Settings</span>
+    </div>
+  </nav>
+</div>
+
+<!-- EDIT SHEET -->
+<div class="sheet-overlay" id="edit-overlay" onclick="hideSheet('edit')"></div>
+<div class="sheet" id="edit-sheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-header"><div class="sheet-title">Edit Transaction</div><div class="sheet-close" onclick="hideSheet('edit')">&#x2715;</div></div>
+  <input type="hidden" id="edit-id"><input type="hidden" id="edit-type">
+  <div class="form-row"><label>Amount</label>
+    <div class="amount-input-wrap"><span class="amount-prefix">&#x20B9;</span><input type="number" class="amount-input" id="edit-amount" inputmode="decimal" style="font-size:24px;padding:12px 8px;"></div>
+  </div>
+  <div class="form-row"><label>Category</label><input type="text" id="edit-category" readonly style="opacity:0.6;cursor:default;"></div>
+  <div class="form-row"><label>Note</label><input type="text" id="edit-note" maxlength="120"></div>
+  <div class="form-row"><label>Date</label><input type="date" id="edit-date"></div>
+  <button class="btn-primary btn-expense" id="edit-save-btn" onclick="saveEdit()" style="margin-top:10px;">Save Changes</button>
+</div>
+
+<!-- BUDGET SHEET -->
+<div class="sheet-overlay" id="budget-overlay" onclick="hideSheet('budget')"></div>
+<div class="sheet" id="budget-sheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-header"><div class="sheet-title" id="budget-modal-title">Set Budget</div><div class="sheet-close" onclick="hideSheet('budget')">&#x2715;</div></div>
+  <input type="hidden" id="budget-cat">
+  <div class="form-row"><label>Monthly Limit (&#x20B9;)</label>
+    <div class="amount-input-wrap"><span class="amount-prefix">&#x20B9;</span><input type="number" class="amount-input" id="budget-amount" inputmode="decimal" style="font-size:24px;padding:12px 8px;" placeholder="0"></div>
+  </div>
+  <button class="btn-primary btn-accent" onclick="saveBudget()" style="margin-top:8px;">Save Budget</button>
+  <button class="btn-secondary" style="width:100%;justify-content:center;margin-top:8px;" onclick="removeBudget()">Remove Budget</button>
+</div>
+
+<!-- VIEW REPORT SHEET -->
+<div class="sheet-overlay" id="view-report-overlay" onclick="hideSheet('view-report')"></div>
+<div class="sheet" id="view-report-sheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-header"><div class="sheet-title" id="view-report-title">Report</div><div class="sheet-close" onclick="hideSheet('view-report')">&#x2715;</div></div>
+  <div id="view-report-content"></div>
+</div>
+
+<!-- CSV SHEET -->
+<div class="sheet-overlay" id="csv-overlay" onclick="hideSheet('csv')"></div>
+<div class="sheet" id="csv-sheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-header"><div class="sheet-title" id="csv-sheet-title">Export</div><div class="sheet-close" onclick="hideSheet('csv')">&#x2715;</div></div>
+  <div style="margin-bottom:16px;">
+    <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:8px;">Date Range</div>
+    <div class="form-grid-2" style="margin-bottom:8px;">
+      <div class="form-row" style="margin-bottom:0;"><label>From</label><input type="date" id="csv-from"></div>
+      <div class="form-row" style="margin-bottom:0;"><label>To</label><input type="date" id="csv-to"></div>
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;">
+      <button class="chip" onclick="setCsvRange('week')">This Week</button>
+      <button class="chip" onclick="setCsvRange('month')">This Month</button>
+      <button class="chip" onclick="setCsvRange('3m')">3 Months</button>
+      <button class="chip" onclick="setCsvRange('year')">This Year</button>
+      <button class="chip" onclick="setCsvRange('all')">All Time</button>
+    </div>
+  </div>
+  <div id="csv-type-row" style="margin-bottom:16px;">
+    <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:8px;">Type</div>
+    <div style="display:flex;gap:16px;">
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:500;cursor:pointer;"><div class="csv-checkbox checked" id="csv-chk-expense" onclick="toggleCsvType('expense')"></div> Expenses</label>
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:500;cursor:pointer;"><div class="csv-checkbox checked" id="csv-chk-income" onclick="toggleCsvType('income')"></div> Income</label>
+    </div>
+  </div>
+  <div style="margin-bottom:16px;">
+    <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:8px;">Columns to Include</div>
+    <div id="csv-columns-list"></div>
+  </div>
+  <div id="csv-groupby-row" style="margin-bottom:18px;">
+    <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:8px;">Group By</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;" id="csv-groupby">
+      <button class="chip active" onclick="selectCsvGroup(this,'none')">None</button>
+      <button class="chip" onclick="selectCsvGroup(this,'date')">Date</button>
+      <button class="chip" onclick="selectCsvGroup(this,'category')">Category</button>
+      <button class="chip" onclick="selectCsvGroup(this,'month')">Month</button>
+    </div>
+  </div>
+  <button class="btn-primary btn-accent" onclick="runCsvExport()">&#x1F4E5; Download CSV</button>
+</div>
+
+<!-- CONFIRM DIALOG -->
+<div class="dialog-overlay" id="confirm-overlay" onclick="cancelDelete()">
+  <div class="dialog-box" onclick="event.stopPropagation()">
+    <div class="dialog-icon">&#x1F5D1;</div>
+    <div class="dialog-title">Delete?</div>
+    <div class="dialog-msg" id="confirm-msg">This action cannot be undone.</div>
+    <div class="dialog-btns">
+      <button class="btn-cancel" onclick="cancelDelete()">Cancel</button>
+      <button class="btn-confirm" onclick="confirmDelete()">Delete</button>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
