@@ -409,11 +409,23 @@ select option { background: var(--card-solid); color: var(--text); }
 
 /* ===== HOME: SPEEDOMETER ===== */
 .speedo-wrap {
-  padding: 20px 16px 35px; /* Increased bottom padding to prevent overlap */
+  padding: 24px 16px 20px;
   display: flex; flex-direction: column; align-items: center;
+  background: var(--surface);
+  border-radius: var(--r);
+  margin-bottom: 12px;
+  backdrop-filter: var(--blur-sm);
+  border: 1px solid var(--border);
 }
-.speedo-svg { width: 100%; max-width: 280px; overflow: visible; }
-.speedo-label { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: .8px; font-weight: 700; margin-top: 2px; }
+.speedo-svg { 
+  width: 100%; max-width: 280px; overflow: visible; 
+  filter: drop-shadow(0 4px 12px rgba(0,0,0,0.3));
+}
+.speedo-label { 
+  font-size: 11px; color: var(--text2); 
+  text-transform: uppercase; letter-spacing: 1.2px; 
+  font-weight: 700; margin-top: 10px; opacity: 0.8;
+}
 .speedo-value { font-family: var(--mono); font-size: 28px; font-weight: 700; letter-spacing: -1px; }
 .speedo-budget { font-size: 11px; color: var(--text2); margin-top: 2px; font-weight: 500; }
 .today-usage {
@@ -442,11 +454,13 @@ select option { background: var(--card-solid); color: var(--text); }
 
 /* ===== HOME: AMOUNT INPUT ===== */
 .amount-wrap {
-  padding: 16px;
-  background: var(--card); border: 1.5px solid var(--border);
-  border-radius: var(--r); margin-bottom: 12px;
-  backdrop-filter: var(--blur-sm);
-  transition: border-color .2s, box-shadow .2s;
+  padding: 20px;
+  background: rgba(14,20,40,0.6); 
+  border: 1px solid var(--border2);
+  border-radius: var(--r); margin-bottom: 16px;
+  backdrop-filter: blur(20px) saturate(2);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+  transition: all .3s cubic-bezier(0.16,1,0.3,1);
 }
 .amount-wrap.focused { border-color: var(--accent); box-shadow: 0 0 0 4px var(--glow); }
 

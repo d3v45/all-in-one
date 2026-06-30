@@ -224,52 +224,38 @@ function renderHome() {
 
 function drawSpeedometer(spent, budget) {
   const svg=el('speedo-svg'); if(!svg) return;
-  const W=260, H=155, cx=130, cy=138, r=110, stroke=18;
+  const W=280, H=185, cx=140, cy=130, r=95, stroke=16;
   const pct = budget>0 ? Math.min(spent/budget,1) : 0;
-  // Arc from 180° to 0° (left to right)
   const startAngle=Math.PI, sweepAngle=Math.PI;
   const toXY=(a,rr)=>({ x:cx+rr*Math.cos(a), y:cy+rr*Math.sin(a) });
   const arcPath=(a1,a2,rr)=>{
     const s=toXY(a1,rr), e=toXY(a2,rr), lg=a2-a1>Math.PI?1:0;
     return `M ${s.x} ${s.y} A ${rr} ${rr} 0 ${lg} 1 ${e.x} ${e.y}`;
   };
-  // Color based on pct
   const color = pct>=1?'#ff5f7e':pct>=0.8?'#f9ca24':'#00d2a0';
   const endAngle = startAngle + sweepAngle*pct;
-  const needleAngle = startAngle + sweepAngle*pct;
-  const nx=cx+(r-stroke/2)*Math.cos(needleAngle), ny=cy+(r-stroke/2)*Math.sin(needleAngle);
+  const nx=cx+(r-stroke/2)*Math.cos(endAngle), ny=cy+(r-stroke/2)*Math.sin(endAngle);
 
   svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
   svg.innerHTML=`
     <defs>
-      <linearGradient id="sg1" x1="0%" y1="0%" x2="100%" y2="0%">
-        <stop offset="0%" stop-color="#00d2a0"/>
-        <stop offset="60%" stop-color="#f9ca24"/>
-        <stop offset="100%" stop-color="#ff5f7e"/>
-      </linearGradient>
       <filter id="glow"><feGaussianBlur stdDeviation="3" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
     </defs>
-    <!-- Track -->
     <path d="${arcPath(Math.PI,0,r)}" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="${stroke}" stroke-linecap="round"/>
-    <!-- Fill -->
     ${pct>0?`<path d="${arcPath(Math.PI,endAngle,r)}" fill="none" stroke="${color}" stroke-width="${stroke}" stroke-linecap="round" filter="url(#glow)" opacity="0.9"/>`:''}
-    <!-- Tick marks -->
     ${[0,0.25,0.5,0.75,1].map(t=>{
       const a=Math.PI+Math.PI*t;
       const x1=cx+(r+stroke/2+5)*Math.cos(a), y1=cy+(r+stroke/2+5)*Math.sin(a);
       const x2=cx+(r+stroke/2+12)*Math.cos(a), y2=cy+(r+stroke/2+12)*Math.sin(a);
       return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="rgba(255,255,255,0.2)" stroke-width="1.5" stroke-linecap="round"/>`;
     }).join('')}
-    <!-- Needle -->
     ${pct>0?`<circle cx="${nx}" cy="${ny}" r="5" fill="${color}" filter="url(#glow)"/>`:''}
-    <!-- Center text -->
-    <text x="${cx}" y="${cy-24}" text-anchor="middle" fill="rgba(255,255,255,0.4)" font-size="10" font-family="Space Grotesk" font-weight="600" letter-spacing="1">MONTHLY SPEND</text>
-    <text x="${cx}" y="${cy-4}" text-anchor="middle" fill="${color}" font-size="26" font-family="JetBrains Mono" font-weight="700">${fmt(spent)}</text>
-    <text x="${cx}" y="${cy+14}" text-anchor="middle" fill="rgba(255,255,255,0.35)" font-size="11" font-family="Space Grotesk" font-weight="500">${budget>0?'of '+fmt(budget):'No budget set'}</text>
-    ${budget>0?`<text x="${cx}" y="${cy+30}" text-anchor="middle" fill="${color}" font-size="12" font-family="Space Grotesk" font-weight="700">${(pct*100).toFixed(0)}% used</text>`:''}
-    <!-- Labels -->
-    <text x="${toXY(Math.PI,r+32).x}" y="${toXY(Math.PI,r+32).y+4}" text-anchor="middle" fill="rgba(255,255,255,0.25)" font-size="10" font-family="JetBrains Mono">0%</text>
-    <text x="${toXY(0,r+32).x}" y="${toXY(0,r+32).y+4}" text-anchor="middle" fill="rgba(255,255,255,0.25)" font-size="10" font-family="JetBrains Mono">100%</text>
+    <text x="${cx}" y="${cy-46}" text-anchor="middle" fill="rgba(255,255,255,0.4)" font-size="10" font-family="Space Grotesk" font-weight="600" letter-spacing="1">MONTHLY SPEND</text>
+    <text x="${cx}" y="${cy-18}" text-anchor="middle" fill="${color}" font-size="26" font-family="JetBrains Mono" font-weight="700">${fmt(spent)}</text>
+    <text x="${cx}" y="${cy+6}" text-anchor="middle" fill="rgba(255,255,255,0.35)" font-size="11" font-family="Space Grotesk" font-weight="500">${budget>0?'of '+fmt(budget):'No budget set'}</text>
+    ${budget>0?`<text x="${cx}" y="${cy+26}" text-anchor="middle" fill="${color}" font-size="12" font-family="Space Grotesk" font-weight="700">${(pct*100).toFixed(0)}% used</text>`:''}
+    <text x="${toXY(Math.PI,r+32).x}" y="${cy+4}" text-anchor="middle" fill="rgba(255,255,255,0.25)" font-size="10" font-family="JetBrains Mono">0%</text>
+    <text x="${toXY(0,r+32).x}" y="${cy+4}" text-anchor="middle" fill="rgba(255,255,255,0.25)" font-size="10" font-family="JetBrains Mono">100%</text>
   `;
 }
 
