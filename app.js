@@ -15,8 +15,8 @@ const auth = firebase.auth();
 const db   = firebase.firestore();
 const gProvider = new firebase.auth.GoogleAuthProvider();
 
-auth.getRedirectResult().then(r => { if (r.user) initApp(r.user); }).catch(console.error);
-auth.onAuthStateChanged(u => { if (u) initApp(u); else showSignIn(); });
+//auth.getRedirectResult().then(r => { if (r.user) initApp(r.user); }).catch(console.error);
+//auth.onAuthStateChanged(u => { if (u) initApp(u); else showSignIn(); });
 
 // ===== STATE =====
 let user = null;
@@ -643,16 +643,31 @@ function toggleNotif() {
     notifOn=false;el('notif-tog').classList.remove('on');el('notif-sub').textContent='Tap to enable';toast('Disabled','info');localStorage.removeItem('notif');
   }
 }
-function sendTestNotif() {
+async function sendTestNotif() {
   hap('m');
-  if(Notification.permission!=='granted'){toast('Enable notifications first','warn');return;}
-  new Notification('d3v Nexus — Daily Reminder',{
-    body:'Don\'t forget to log today\'s expenses and daily report! 📋',
-    icon:'icon-192.png',
-    badge:'icon-192.png',
-    tag:'nexus-daily-reminder'
-  });
-  toast('Test notification sent!','ok');
+  if (!("Notification" in window)) { toast("Browser doesn't support notifications", "err"); return; }
+  
+  let perm = Notification.permission;
+  if (perm !== "granted") perm = await Notification.requestPermission();
+  
+  if (perm === "granted") {
+    if (navigator.serviceWorker) {
+      navigator.serviceWorker.ready.then((reg) => {
+        reg.showNotification("d3v Nexus — Daily Reminder", {
+          body: "Don't forget to log today's expenses and daily report! 📋",
+          icon: "icon-192.png",
+          badge: "icon-192.png",
+          vibrate: [200, 100, 200],
+          tag: 'nexus-daily-reminder'
+        });
+      });
+      toast('Test notification sent!','ok');
+    } else {
+      toast("Service worker not ready", "err");
+    }
+  } else {
+    toast("Notification permission denied", "err");
+  }
 }
 function scheduleNotifCheck() {
   if(localStorage.getItem('notif')==='on') notifOn=true;
@@ -722,7 +737,7 @@ function renderDailyList() {
       ${r.mood?`<span style="font-size:18px">${MOOD[r.mood]||''}</span>`:''}
       <div class="r-note" style="-webkit-line-clamp:3">${esc(r.notes||'')}</div>
       ${r.tasks?`<div style="font-size:11px;color:var(--text3);margin-top:5px">✓ ${esc(r.tasks)}</div>`:''}
-      <div class="r-acts"><button onclick="viewDR('${r.id}')">View</button><button style="color:var(--expense)" onclick="askDelReport('${r.id}','daily')">Delete</button></div>
+      <div class="r-acts"><button onclick="viewDR('${r.id}')">View</button><button style="color:var(--accent2)" onclick="editDR('${r.id}')">Edit</button><button style="color:var(--expense)" onclick="askDelReport('${r.id}','daily')">Delete</button></div>
     </div>`;
   }).join('');
 }
@@ -741,11 +756,67 @@ function renderVisitList() {
       ${r.purpose?`<div style="font-size:11px;color:var(--accent2);margin-top:3px">📌 ${esc(r.purpose)}</div>`:''}
       <div class="r-note">${esc(r.notes||'')}</div>
       ${r.followup&&r.followup!=='no'?`<div style="font-size:11px;color:var(--warn);margin-top:5px">⚡ ${FOLLOWUP[r.followup]||r.followup}</div>`:''}
-      <div class="r-acts"><button onclick="viewVR('${r.id}')">View</button><button style="color:var(--expense)" onclick="askDelReport('${r.id}','visit')">Delete</button></div>
+      <div class="r-acts"><button onclick="viewVR('${r.id}')">View</button><button style="color:var(--accent2)" onclick="editVR('${r.id}')">Edit</button><button style="color:var(--expense)" onclick="askDelReport('${r.id}','visit')">Delete</button></div>
     </div>`;
   }).join('');
 }
 function askDelReport(id,type){hap('m');delTarget={id,type:'__r_'+type};el('dlg-msg').textContent='This report will be permanently deleted.';el('confirm-dlg').classList.add('show');}
+
+// ===== EDIT REPORTS LOGIC =====
+function editDR(id) {
+  hap('l');
+  const r = dailyReports.find(x => x.id === id); if (!r) return;
+  setVal('dr-date', r.date); setVal('dr-notes', r.notes || '');
+  setVal('dr-tasks', r.tasks || ''); setVal('dr-issues', r.issues || '');
+  setVal('dr-plan', r.plan || ''); setVal('dr-mood', r.mood || 'good');
+  setVal('dr-status', r.status || 'completed');
+  switchReportTab('daily');
+  // Optional: Auto-scroll to the top form
+  el('daily-form').scrollIntoView({behavior: 'smooth'});
+  toast('Editing report. Save when done.', 'info');
+  // Note: To fully save an edit, your saveDailyReport function will need to be updated to handle overwrites.
+}
+
+function editVR(id) {
+  hap('l');
+  const r = visitReports.find(x => x.id === id); if (!r) return;
+  setVal('vr-date', r.date); setVal('vr-time', r.time || '');
+  setVal('vr-client', r.client || ''); setVal('vr-location', r.location || '');
+  setVal('vr-contact', r.contact || ''); setVal('vr-purpose', r.purpose || '');
+  setVal('vr-notes', r.notes || ''); setVal('vr-outcome', r.outcome || '');
+  setVal('vr-status', r.status || 'completed'); setVal('vr-followup', r.followup || 'no');
+  switchReportTab('visit');
+  el('visit-form').scrollIntoView({behavior: 'smooth'});
+  toast('Editing visit. Save when done.', 'info');
+}
+
+// ===== EDIT REPORTS LOGIC =====
+function editDR(id) {
+  hap('l');
+  const r = dailyReports.find(x => x.id === id); if (!r) return;
+  setVal('dr-date', r.date); setVal('dr-notes', r.notes || '');
+  setVal('dr-tasks', r.tasks || ''); setVal('dr-issues', r.issues || '');
+  setVal('dr-plan', r.plan || ''); setVal('dr-mood', r.mood || 'good');
+  setVal('dr-status', r.status || 'completed');
+  switchReportTab('daily');
+  // Optional: Auto-scroll to the top form
+  el('daily-form').scrollIntoView({behavior: 'smooth'});
+  toast('Editing report. Save when done.', 'info');
+  // Note: To fully save an edit, your saveDailyReport function will need to be updated to handle overwrites.
+}
+
+function editVR(id) {
+  hap('l');
+  const r = visitReports.find(x => x.id === id); if (!r) return;
+  setVal('vr-date', r.date); setVal('vr-time', r.time || '');
+  setVal('vr-client', r.client || ''); setVal('vr-location', r.location || '');
+  setVal('vr-contact', r.contact || ''); setVal('vr-purpose', r.purpose || '');
+  setVal('vr-notes', r.notes || ''); setVal('vr-outcome', r.outcome || '');
+  setVal('vr-status', r.status || 'completed'); setVal('vr-followup', r.followup || 'no');
+  switchReportTab('visit');
+  el('visit-form').scrollIntoView({behavior: 'smooth'});
+  toast('Editing visit. Save when done.', 'info');
+}
 function vField(lbl,val){if(!val)return '';return `<div class="vf"><div class="vf-lbl">${lbl}</div><div class="vf-val">${esc(val)}</div></div>`;}
 function viewDR(id) {
   const r=dailyReports.find(x=>x.id===id); if(!r) return;
@@ -795,16 +866,14 @@ function runCsv(){
     if(!rows.length){toast('No records in range','warn');return;}
     const cols=['Date','Status','Mood','Summary','Tasks','Issues','Plan'].filter(get);
     let csv=cols.join(',')+'\n';
-    rows.forEach(r=>{csv+=cols.map(c=>(`"${String({Date:r.date,Status:r.status,Mood:r.mood,Summary:r.notes,Tasks:r.tasks,Issues:r.issues,Plan:r.plan}[c]||'').replace(/"/g,'""')}")`).join(',')+'\n';});
-    dl(csv,'d3v-nexus-daily-'+fr+'-'+to+'.csv'); toast('Exported '+rows.length+' reports!','ok'); hideSheet('csv'); return;
+rows.forEach(r=>{csv+=cols.map(c=>`"${String({Date:r.date,Status:r.status,Mood:r.mood,Summary:r.notes,Tasks:r.tasks,Issues:r.issues,Plan:r.plan}[c]||'').replace(/\"/g,'""')}"`).join(',')+'\n';});    dl(csv,'d3v-nexus-daily-'+fr+'-'+to+'.csv'); toast('Exported '+rows.length+' reports!','ok'); hideSheet('csv'); return;
   }
   if(etype==='visit'){
     const rows=visitReports.filter(r=>r.date>=fr&&r.date<=to);
     if(!rows.length){toast('No records in range','warn');return;}
     const cols=['Date','Time','Client','Location','Contact','Purpose','Notes','Outcome','Status','Follow-up'].filter(get);
     let csv=cols.join(',')+'\n';
-    rows.forEach(r=>{csv+=cols.map(c=>(`"${String({'Date':r.date,'Time':r.time,'Client':r.client,'Location':r.location,'Contact':r.contact,'Purpose':r.purpose,'Notes':r.notes,'Outcome':r.outcome,'Status':r.status,'Follow-up':r.followup}[c]||'').replace(/"/g,'""')}")`).join(',')+'\n';});
-    dl(csv,'d3v-nexus-visits-'+fr+'-'+to+'.csv'); toast('Exported '+rows.length+'!','ok'); hideSheet('csv'); return;
+rows.forEach(r=>{csv+=cols.map(c=>`"${String({'Date':r.date,'Time':r.time,'Client':r.client,'Location':r.location,'Contact':r.contact,'Purpose':r.purpose,'Notes':r.notes,'Outcome':r.outcome,'Status':r.status,'Follow-up':r.followup}[c]||'').replace(/\"/g,'""')}"`).join(',')+'\n';});    dl(csv,'d3v-nexus-visits-'+fr+'-'+to+'.csv'); toast('Exported '+rows.length+'!','ok'); hideSheet('csv'); return;
   }
   let rows=[];
   if(csvState.t.expense) rows.push(...expenses.filter(e=>e.date>=fr&&e.date<=to).map(e=>({Date:e.date,Type:'Expense',Category:ECATS.find(c=>c.k===e.category)?.l||e.category,Note:e.note||'',Amount:e.amount})));
@@ -849,6 +918,18 @@ function switchTab(t) {
 // ===== SW =====
 if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(console.error);
 
+// Remove these lines from the TOP of your file:
+// auth.getRedirectResult().then(...)
+// auth.onAuthStateChanged(...)
+// initTheme();
+
 // ===== BOOT =====
-initTheme();
-window.addEventListener('DOMContentLoaded',()=>{ initAmountInput(); });
+window.addEventListener('DOMContentLoaded', () => {
+  // 1. Setup UI first
+  initTheme();
+  initAmountInput();
+  
+  // 2. Then check Firebase Auth
+  auth.getRedirectResult().then(r => { if (r.user) initApp(r.user); }).catch(console.error);
+  auth.onAuthStateChanged(u => { if (u) initApp(u); else showSignIn(); });
+});

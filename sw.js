@@ -1,4 +1,4 @@
-const CACHE_NAME = 'd3v-xpense-v1';
+const CACHE_NAME = 'd3v-xpense-v3';
 const OFFLINE_URL = 'index.html';
 
 const PRECACHE_ASSETS = [
