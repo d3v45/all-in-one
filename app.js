@@ -27,6 +27,7 @@ let recExp = false, recInc = false;
 let period = 'month', hFilter = 'all';
 let delTarget = null, charts = {}, budgetFlags = {};
 let notifOn = false, reportTab = 'daily';
+let lastSyncedAt = null;
 let viewMonthOff = 0;
 let csvState = { t: { expense: true, income: true }, group: 'none', cols: {}, exportType: 'expense' };
 let amountHasValue = false;

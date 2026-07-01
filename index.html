@@ -68,6 +68,7 @@
       </div>
     </div>
     <div id="user-chip" style="display:none;">
+      <div id="sync-badge" class="sync-badge"></div>
       <div class="avatar-btn" id="user-av" onclick="switchTab('settings')"></div>
     </div>
   </div>
@@ -77,23 +78,29 @@
   <!-- ==================== HOME ==================== -->
   <div class="screen active" id="tab-home">
 
-    <!-- Speedometer -->
-    <div class="glass" style="margin-bottom:12px;">
-      <div class="speedo-wrap">
+    <!-- Home top grid -->
+    <div class="home-top-grid">
+      <div class="speedo-card">
         <svg id="speedo-svg" class="speedo-svg"></svg>
-        <div class="speedo-label">Monthly Budget Usage</div>
+        <div class="speedo-label">Budget</div>
       </div>
-      <div style="padding:0 16px 16px;">
-        <div class="today-usage">
-          <span>&#x1F4C5; Today&apos;s spend</span>
-          <span class="today-amt" id="today-amt">&#x20B9;0</span>
-          <span id="spent-trend" style="font-size:10px;"></span>
-        </div>
+      <div class="quick-stats-card">
+        <div class="qs-lbl">&#x1F4C5; Today's Spend</div>
+        <div class="qs-val t-exp" id="today-amt">&#x20B9;0</div>
+        <div id="spent-trend" class="qs-trend"></div>
+        <div class="qs-divider"></div>
+        <div class="qs-lbl">Monthly</div>
+        <div class="qs-pct-bar"><div class="qs-pct-fill" id="qs-pct-fill"></div></div>
+        <div class="qs-pct-txt" id="qs-pct-txt">No budget</div>
       </div>
     </div>
 
-    <!-- Earned + Balance strip -->
-    <div class="overview-strip">
+    <!-- 3-card strip: Spend, Earned, Balance -->
+    <div class="overview-strip three">
+      <div class="ov-card ov-exp">
+        <div class="ov-lbl">Spend</div>
+        <div class="ov-val ve" id="ov-spend">&#x20B9;0</div>
+      </div>
       <div class="ov-card ov-inc">
         <div class="ov-lbl">Earned</div>
         <div class="ov-val vi" id="ov-earned">&#x20B9;0</div>
@@ -107,12 +114,13 @@
     <!-- Amount input card -->
     <div class="amount-wrap" id="amount-wrap">
 
-      <!-- Type pills + amount field row -->
+      <!-- Type pills -->
+      <div class="type-pills">
+        <button class="type-pill p-exp active" id="pill-exp" onclick="setType('expense')">Expense</button>
+        <button class="type-pill p-inc" id="pill-inc" onclick="setType('income')">Income</button>
+      </div>
+      <!-- Amount field -->
       <div class="amount-top-row">
-        <div class="type-pills">
-          <button class="type-pill p-exp active" id="pill-exp" onclick="setType('expense')">Expense</button>
-          <button class="type-pill p-inc" id="pill-inc" onclick="setType('income')">Income</button>
-        </div>
         <div class="amount-field-row">
           <span class="amount-prefix">&#x20B9;</span>
           <input type="number" class="amount-field" id="amount-inp" placeholder="0" inputmode="decimal">
