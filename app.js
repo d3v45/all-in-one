@@ -141,6 +141,7 @@ function initApp(u) {
   setVal('vr-date',today()); setVal('vr-time',nowTime());
   renderCatGrid(); updateMonthNav();
   scheduleNotifCheck();
+  updateSyncStatus();
 }
 
 // ===== FIRESTORE =====
@@ -160,11 +161,12 @@ function setupListeners() {
     .onSnapshot(s=>{ visitReports=s.docs.map(d=>({id:d.id,...d.data()})); if(tab==='reports'&&reportTab==='visit') renderVisitList(); });
 }
 function onChange() {
+  lastSyncedAt = new Date();
+  updateSyncStatus();
   if(tab==='home')      renderHome();
   if(tab==='history')   renderHistory();
   if(tab==='analytics') renderAnalytics();
   if(tab==='settings')  renderSettings();
-  checkBudgetAlerts();
 }
 
 // ===== BUDGET ALERTS =====
@@ -191,6 +193,27 @@ function updateMonthNav() {
   el('month-nav-lbl').textContent=viewMonthOff===0?'This Month':MN[d.getMonth()]+' '+d.getFullYear();
   const nb=el('month-nav-next'); if(nb){nb.style.opacity=viewMonthOff>=0?'.3':'1';nb.disabled=viewMonthOff>=0;}
 }
+function updateSyncStatus() {
+  const badge=el('sync-badge'); if(!badge) return;
+  if(navigator.onLine){
+    badge.className='sync-badge online';
+    badge.innerHTML='<span class="sync-dot"></span>Live';
+  } else {
+    badge.className='sync-badge offline';
+    const ago=lastSyncedAt?fmtAgo(lastSyncedAt):'never synced';
+    badge.innerHTML=`<span class="sync-dot"></span>${ago}`;
+  }
+}
+function fmtAgo(d){
+  const s=Math.round((Date.now()-d.getTime())/1000);
+  if(s<60) return 'just now';
+  const m=Math.round(s/60);
+  if(m<60) return `${m}m ago`;
+  return `${Math.round(m/60)}h ago`;
+}
+window.addEventListener('online',  updateSyncStatus);
+window.addEventListener('offline', updateSyncStatus);
+
 function changeMonth(dir) {
   hap('l'); if(dir>0&&viewMonthOff>=0) return;
   viewMonthOff+=dir; updateMonthNav(); renderHome();
@@ -202,61 +225,85 @@ function renderHome() {
   const mInc=income.filter(i=>i.date>=ms&&i.date<=me);
   const spent=sum(mExp), earned=sum(mInc), bal=earned-spent;
   const budget=cfg?.monthlyBudget||0;
+  const pct=budget>0?Math.min(spent/budget,1):0;
+  const color=pct>=1?'#ff5f7e':pct>=0.8?'#f9ca24':'#00d2a0';
 
   // Speedometer
   drawSpeedometer(spent, budget);
 
-  // Today's usage
+  // Quick stats (right panel)
   const todaySpent=sum(expenses.filter(e=>e.date===today()));
-  el('today-amt').textContent=fmt(todaySpent);
+  const qAmt=el('today-amt'); if(qAmt) qAmt.textContent=fmt(todaySpent);
+  const qFill=el('qs-pct-fill'); if(qFill){qFill.style.width=(pct*100).toFixed(0)+'%';qFill.style.background=color;}
+  const qTxt=el('qs-pct-txt'); if(qTxt) qTxt.textContent=budget>0?(pct*100).toFixed(0)+'% used':'No budget';
 
-  // Overview strip
+  // 3-card strip
+  const sEl=el('ov-spend'); if(sEl) sEl.textContent=fmt(spent);
   el('ov-earned').textContent=fmt(earned);
   const bel=el('ov-balance'); bel.textContent=fmt(bal);
-  bel.className='ov-val '+(bal>=0?'vb':'t-exp');
+  bel.className='ov-val '+(bal>=0?'vb':'ve');
 
   // Trend
   const ps=mStart(viewMonthOff-1), pe=mEnd(viewMonthOff-1);
   const prevSpent=sum(expenses.filter(e=>e.date>=ps&&e.date<=pe));
   const tEl=el('spent-trend');
-  if(tEl&&prevSpent>0){ const chg=((spent-prevSpent)/prevSpent*100).toFixed(0); const up=spent>prevSpent; tEl.innerHTML=`<span class="${up?'trend-up':'trend-dn'}">${up?'↑':'↓'}${Math.abs(chg)}% vs prev</span>`; }
+  if(tEl&&prevSpent>0){const chg=((spent-prevSpent)/prevSpent*100).toFixed(0);const up=spent>prevSpent;tEl.innerHTML=`<span class="${up?'trend-up':'trend-dn'}">${up?'↑':'↓'}${Math.abs(chg)}%</span>`;}
   else if(tEl) tEl.innerHTML='';
 }
 
 function drawSpeedometer(spent, budget) {
   const svg=el('speedo-svg'); if(!svg) return;
-  const W=280, H=185, cx=140, cy=130, r=95, stroke=16;
-  const pct = budget>0 ? Math.min(spent/budget,1) : 0;
-  const startAngle=Math.PI, sweepAngle=Math.PI;
-  const toXY=(a,rr)=>({ x:cx+rr*Math.cos(a), y:cy+rr*Math.sin(a) });
+  const W=200, H=138, cx=100, cy=102, r=76, stroke=13;
+  const pct=budget>0?Math.min(spent/budget,1):0;
+  const toXY=(a,rr)=>({x:cx+rr*Math.cos(a), y:cy+rr*Math.sin(a)});
   const arcPath=(a1,a2,rr)=>{
-    const s=toXY(a1,rr), e=toXY(a2,rr), lg=a2-a1>Math.PI?1:0;
-    return `M ${s.x} ${s.y} A ${rr} ${rr} 0 ${lg} 1 ${e.x} ${e.y}`;
+    const s=toXY(a1,rr), e=toXY(a2,rr);
+    const lg=Math.abs(a2-a1)>Math.PI?1:0;
+    return `M ${s.x.toFixed(2)} ${s.y.toFixed(2)} A ${rr} ${rr} 0 ${lg} 1 ${e.x.toFixed(2)} ${e.y.toFixed(2)}`;
   };
-  const color = pct>=1?'#ff5f7e':pct>=0.8?'#f9ca24':'#00d2a0';
-  const endAngle = startAngle + sweepAngle*pct;
-  const nx=cx+(r-stroke/2)*Math.cos(endAngle), ny=cy+(r-stroke/2)*Math.sin(endAngle);
+  const color=pct>=1?'#ff5f7e':pct>=0.8?'#f9ca24':'#00d2a0';
+  const endAngle=Math.PI+Math.PI*pct;
+  const dot=toXY(endAngle,r);
 
   svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
   svg.innerHTML=`
     <defs>
-      <filter id="glow"><feGaussianBlur stdDeviation="3" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+      <linearGradient id="arcG" x1="0%" y1="0%" x2="100%" y2="0%">
+        <stop offset="0%" stop-color="#00d2a0" stop-opacity="0.9"/>
+        <stop offset="100%" stop-color="${color}"/>
+      </linearGradient>
+      <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+        <feGaussianBlur stdDeviation="2.5" result="b"/>
+        <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+      <filter id="dotglow" x="-80%" y="-80%" width="260%" height="260%">
+        <feGaussianBlur stdDeviation="4" result="b"/>
+        <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
     </defs>
+    <!-- glass ring -->
+    <circle cx="${cx}" cy="${cy}" r="${r+stroke/2+4}" fill="none" stroke="rgba(255,255,255,0.04)" stroke-width="1.5"/>
+    <!-- track -->
     <path d="${arcPath(Math.PI,0,r)}" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="${stroke}" stroke-linecap="round"/>
-    ${pct>0?`<path d="${arcPath(Math.PI,endAngle,r)}" fill="none" stroke="${color}" stroke-width="${stroke}" stroke-linecap="round" filter="url(#glow)" opacity="0.9"/>`:''}
-    ${[0,0.25,0.5,0.75,1].map(t=>{
+    <!-- fill arc -->
+    ${pct>0?`<path d="${arcPath(Math.PI,endAngle,r)}" fill="none" stroke="url(#arcG)" stroke-width="${stroke}" stroke-linecap="round" filter="url(#glow)"/>`:``}
+    <!-- end dot -->
+    ${pct>0?`
+      <circle cx="${dot.x.toFixed(2)}" cy="${dot.y.toFixed(2)}" r="10" fill="${color}" opacity="0.2" filter="url(#dotglow)"/>
+      <circle cx="${dot.x.toFixed(2)}" cy="${dot.y.toFixed(2)}" r="6" fill="${color}" filter="url(#glow)"/>
+      <circle cx="${dot.x.toFixed(2)}" cy="${dot.y.toFixed(2)}" r="2.5" fill="white" opacity="0.85"/>
+    `:``}
+    <!-- 0/100 ticks -->
+    ${[0,1].map(t=>{
       const a=Math.PI+Math.PI*t;
-      const x1=cx+(r+stroke/2+5)*Math.cos(a), y1=cy+(r+stroke/2+5)*Math.sin(a);
-      const x2=cx+(r+stroke/2+12)*Math.cos(a), y2=cy+(r+stroke/2+12)*Math.sin(a);
-      return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="rgba(255,255,255,0.2)" stroke-width="1.5" stroke-linecap="round"/>`;
+      const p1=toXY(a,r+stroke/2+3), p2=toXY(a,r+stroke/2+9);
+      return `<line x1="${p1.x.toFixed(1)}" y1="${p1.y.toFixed(1)}" x2="${p2.x.toFixed(1)}" y2="${p2.y.toFixed(1)}" stroke="rgba(255,255,255,0.18)" stroke-width="1.5" stroke-linecap="round"/>`;
     }).join('')}
-    ${pct>0?`<circle cx="${nx}" cy="${ny}" r="5" fill="${color}" filter="url(#glow)"/>`:''}
-    <text x="${cx}" y="${cy-46}" text-anchor="middle" fill="rgba(255,255,255,0.4)" font-size="10" font-family="Space Grotesk" font-weight="600" letter-spacing="1">MONTHLY SPEND</text>
-    <text x="${cx}" y="${cy-18}" text-anchor="middle" fill="${color}" font-size="26" font-family="JetBrains Mono" font-weight="700">${fmt(spent)}</text>
-    <text x="${cx}" y="${cy+6}" text-anchor="middle" fill="rgba(255,255,255,0.35)" font-size="11" font-family="Space Grotesk" font-weight="500">${budget>0?'of '+fmt(budget):'No budget set'}</text>
-    ${budget>0?`<text x="${cx}" y="${cy+26}" text-anchor="middle" fill="${color}" font-size="12" font-family="Space Grotesk" font-weight="700">${(pct*100).toFixed(0)}% used</text>`:''}
-    <text x="${toXY(Math.PI,r+32).x}" y="${cy+4}" text-anchor="middle" fill="rgba(255,255,255,0.25)" font-size="10" font-family="JetBrains Mono">0%</text>
-    <text x="${toXY(0,r+32).x}" y="${cy+4}" text-anchor="middle" fill="rgba(255,255,255,0.25)" font-size="10" font-family="JetBrains Mono">100%</text>
+    <!-- center text -->
+    <text x="${cx}" y="${cy-26}" text-anchor="middle" fill="rgba(255,255,255,0.3)" font-size="7.5" font-family="Space Grotesk,sans-serif" font-weight="600" letter-spacing="1.2">MONTHLY</text>
+    <text x="${cx}" y="${cy-8}" text-anchor="middle" fill="${color}" font-size="19" font-family="JetBrains Mono,monospace" font-weight="700">${fmt(spent)}</text>
+    ${budget>0?`<text x="${cx}" y="${cy+9}" text-anchor="middle" fill="rgba(255,255,255,0.28)" font-size="8.5" font-family="Space Grotesk,sans-serif">of ${fmt(budget)}</text>`:''}
+    ${budget>0?`<text x="${cx}" y="${cy+24}" text-anchor="middle" fill="${color}" font-size="11" font-family="JetBrains Mono,monospace" font-weight="700">${(pct*100).toFixed(0)}%</text>`:''}
   `;
 }
 
